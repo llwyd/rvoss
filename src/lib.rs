@@ -12,7 +12,7 @@ impl Noise{
         }
     }
     pub fn update(&mut self){
-        self.value = (random::<f32>() * 2.0) - 1.0;
+        self.value = ((random::<f32>() * 2.0) - 1.0).clamp(-1.0, 1.0);
     }
     
     pub fn value(&self) -> f32{
@@ -20,10 +20,8 @@ impl Noise{
     }
 }
 
-const GENERATORS: usize = 15;
-
-pub struct Pink{
-    noise: [Noise; GENERATORS], // updated based on trailing zeros
+pub struct Voss{
+    noise: Vec<Noise>,
     white: Noise, // Updated every iteration
     pink: f32, // Actual noise
     
@@ -33,18 +31,23 @@ pub struct Pink{
     rollover: u32,
 }
 
-impl Pink{
-    const GENERATORS: u32 = GENERATORS as u32;
+impl Voss{
     
-    pub fn new() -> Pink{
-        Pink{
-            noise:[Noise::new(); Self::GENERATORS as usize],
+    pub fn new(num_generators: u32) -> Voss{
+        assert!(num_generators > 0);
+        let mut v = Voss{
+            noise:Vec::new(),
             white: Noise::new(),
             pink: 0.0,
             counter: 1,
-            generators: Self::GENERATORS,
-            rollover: 2u32.pow(Self::GENERATORS - 1),
+            generators: num_generators,
+            rollover: 2u32.pow(num_generators - 1),
+        };
+
+        for _idx in 0..v.generators{
+            v.noise.push(Noise::new())
         }
+        v
     } 
 
     fn get_noise_index(&self) -> u32{
@@ -81,6 +84,10 @@ impl Pink{
         self.increment_counter();
 
         self.pink / (self.generators as f32 + 1.0)
+    }
+
+    pub fn next(&mut self) -> f32{
+        self.update()
     }
 }
 
@@ -122,15 +129,15 @@ mod tests {
     
     #[test]
     fn initialisation() {
-        let p = Pink::new();
+        let p = Voss::new(15);
         
         assert_eq!(p.counter, 1);
-        assert_eq!(p.generators, Pink::GENERATORS);
+        assert_eq!(p.generators, 15);
         assert_eq!(p.pink, 0.0);
         assert_eq!(p.rollover,16384);
         assert_eq!(p.white.value(), 0.0);
 
-        for i in 0..Pink::GENERATORS{
+        for i in 0..p.generators{
             assert_eq!(p.noise[i as usize].value(), 0.0);
         }
 
@@ -138,9 +145,9 @@ mod tests {
     
     #[test]
     fn update_voss() {
-        let mut p = Pink::new();
+        let mut p = Voss::new(15);
         assert_eq!(p.counter, 1);
-        assert_eq!(p.generators, Pink::GENERATORS);
+        assert_eq!(p.generators, 15);
         assert_eq!(p.pink, 0.0);
         assert_eq!(p.rollover,16384);
         assert_eq!(p.white.value(), 0.0);
@@ -153,8 +160,14 @@ mod tests {
 
     #[test]
     fn index_distribution() {
-        let mut p = Pink::new();
-        let mut count: [u32; Pink::GENERATORS as usize] = [0; Pink::GENERATORS as usize];
+        let num_gens = 15;
+        let mut p = Voss::new(15);
+        let mut count: Vec<u32> = Vec::new();
+        for _idx in 0..num_gens
+        {
+            count.push(0);
+        }
+        //let mut count: [u32; Voss::GENERATORS as usize] = [0; Voss::GENERATORS as usize];
 
         for _i in 0..p.rollover{
             let index = p.get_noise_index();
@@ -162,16 +175,16 @@ mod tests {
             p.update();
         }
         
-        for i in 0..Pink::GENERATORS - 1{
+        for i in 0..num_gens - 1{
             assert_eq!(count[i as usize], p.rollover >> (i + 1));
         }
         
-        assert_eq!(count[(Pink::GENERATORS - 1) as usize], 1);
+        assert_eq!(count[(num_gens - 1) as usize], 1);
     }
     
     #[test]
     fn increment_counter() {
-        let mut p = Pink::new();
+        let mut p = Voss::new(15);
         assert_eq!(p.counter, 1);
 
         p.increment_counter();
@@ -183,7 +196,7 @@ mod tests {
     
     #[test]
     fn increment_counter_rollover() {
-        let mut p = Pink::new();
+        let mut p = Voss::new(15);
         assert_eq!(p.counter, 1);
 
         p.counter = p.rollover - 1;
@@ -196,7 +209,7 @@ mod tests {
 
     #[test]
     fn trailing_zeros() {
-        let mut p = Pink::new();
+        let mut p = Voss::new(15);
        
         assert!(p.generators == 15);
         assert!(p.counter == 1);
