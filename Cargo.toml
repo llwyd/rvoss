@@ -1,6 +1,6 @@
 [package]
 name = "rvoss"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Voss-McCartney pink noise generation algorithm"
 repository = "https://github.com/llwyd/rvoss"
@@ -8,4 +8,5 @@ license = "MIT"
 readme = "README.md"
 
 [dependencies]
+getrandom = { version = "0.4.1", features = ["wasm_js"] }
 rand = "0.10.0"
